@@ -5,45 +5,65 @@ import * as path from 'path';
 
 import MessageData from '../types/MessageData';
 
-const audioEngine: ChildProcess = fork('build/audio/main.js', {
-  execPath: 'elementary'
-}).on('message', function (messageData: MessageData) {
-  const window = BrowserWindow.getFocusedWindow();
-  window &&
-    window.webContents.send('update', {
-      type: messageData.type,
-      value: messageData.value
-    });
-});
+const audioEngine: ChildProcess =
+  fork(
+    'build/audio/main.js',
+    { execPath: 'elementary' })
+    .on(
+      'message',
+      (messageData: MessageData) =>
+      {
+        const window = BrowserWindow.getFocusedWindow();
+        window &&
+        window.webContents.send(
+          'update',
+          {
+            type: messageData.type,
+            value: messageData.value
+          });
+      });
 
-ipcMain.on('async-message', (_, messageData: MessageData) => audioEngine.send(messageData));
+ipcMain.on(
+  'async-message',
+  (_, messageData: MessageData) =>
+    audioEngine.send(messageData));
 
-function createWindow() {
-  const win = new BrowserWindow({
-    width: 1024,
-    height: 768,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
-    }
-  });
+async function createWindow()
+{
+  const win =
+    new BrowserWindow(
+      {
+        width: 1024,
+        height: 768,
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js')
+        }
+      });
 
-  win.loadURL('http://localhost:3000');
+  await win.loadURL('http://localhost:3000');
   win.webContents.openDevTools();
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app
+  .whenReady()
+  .then(
+    async () =>
+    {
+      await createWindow();
+      app.on(
+        'activate',
+        async () =>
+          await (
+            BrowserWindow.getAllWindows().length === 0 ?
+            createWindow :
+            async () => {})());
+    });
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-});
-
-app.on('window-all-closed', () => {
-  audioEngine.kill('SIGINT');
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+app
+  .on(
+    'window-all-closed',
+    () =>
+    {
+      audioEngine.kill('SIGINT');
+      if (process.platform !== 'darwin') app.quit();
+    });
